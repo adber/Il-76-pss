@@ -1,0 +1,165 @@
+name: Build IL-76 PPS APK
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      GRADLE_OPTS: "-Xmx2048m"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate Android Project
+        run: |
+          mkdir -p app/src/main/assets app/src/main/java/ua/il76/pps app/src/main/res/values app/src/main/res/drawable
+          cp index.html app/src/main/assets/index.html
+
+          cat << 'EOF' > settings.gradle.kts
+          pluginManagement {
+              repositories { google(); mavenCentral(); gradlePluginPortal() }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories { google(); mavenCentral() }
+          }
+          rootProject.name = "IL76_PPS"
+          include(":app")
+          EOF
+
+          cat << 'EOF' > build.gradle.kts
+          plugins {
+              id("com.android.application") version "8.7.2" apply false
+              id("org.jetbrains.kotlin.android") version "2.0.21" apply false
+          }
+          EOF
+
+          cat << 'EOF' > app/build.gradle.kts
+          plugins {
+              id("com.android.application")
+              id("org.jetbrains.kotlin.android")
+          }
+          android {
+              namespace = "ua.il76.pps"
+              compileSdk = 35
+              defaultConfig {
+                  applicationId = "ua.il76.pps"
+                  minSdk = 24
+                  targetSdk = 35
+                  versionCode = 210
+                  versionName = "2.10"
+              }
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+              kotlinOptions { jvmTarget = "17" }
+          }
+          EOF
+
+          cat << 'EOF' > app/src/main/AndroidManifest.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.INTERNET" />
+              <application
+                  android:hardwareAccelerated="true"
+                  android:icon="@drawable/ic_launcher"
+                  android:label="@string/app_name"
+                  android:theme="@style/Theme.IL76PPS">
+                  <activity
+                      android:name=".MainActivity"
+                      android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          cat << 'EOF' > app/src/main/res/values/strings.xml
+          <resources>
+              <string name="app_name">Іл-76 ППС v2.10</string>
+          </resources>
+          EOF
+
+          cat << 'EOF' > app/src/main/res/values/styles.xml
+          <resources>
+              <style name="Theme.IL76PPS" parent="android:Theme.Material.NoActionBar">
+                  <item name="android:windowBackground">@android:color/black</item>
+                  <item name="android:statusBarColor">#020617</item>
+                  <item name="android:navigationBarColor">#0f1318</item>
+              </style>
+          </resources>
+          EOF
+
+          cat << 'EOF' > app/src/main/res/drawable/ic_launcher.xml
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp" android:height="108dp"
+              android:viewportWidth="108" android:viewportHeight="108">
+              <path android:fillColor="#141921" android:pathData="M0,0h108v108h-108z"/>
+              <path android:fillColor="#dc2626" android:pathData="M18,24h72v30h-72z"/>
+              <path android:fillColor="#fbbf24" android:pathData="M24,68h16v16h-16z"/>
+              <path android:fillColor="#10b981" android:pathData="M46,68h16v16h-16z"/>
+              <path android:fillColor="#fbbf24" android:pathData="M68,68h16v16h-16z"/>
+          </vector>
+          EOF
+
+          cat << 'EOF' > app/src/main/java/ua/il76/pps/MainActivity.kt
+          package ua.il76.pps
+          import android.annotation.SuppressLint
+          import android.app.Activity
+          import android.graphics.Color
+          import android.os.Bundle
+          import android.view.WindowManager
+          import android.webkit.*
+
+          class MainActivity : Activity() {
+              private lateinit var webView: WebView
+              @SuppressLint("SetJavaScriptEnabled")
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+                  window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                  window.statusBarColor = Color.parseColor("#020617")
+                  window.navigationBarColor = Color.parseColor("#0f1318")
+                  webView = WebView(this).apply {
+                      setBackgroundColor(Color.parseColor("#0f1318"))
+                      webViewClient = WebViewClient()
+                      webChromeClient = WebChromeClient()
+                      settings.apply {
+                          javaScriptEnabled = true
+                          domStorageEnabled = true
+                          allowFileAccess = true
+                          useWideViewPort = true
+                          loadWithOverviewMode = true
+                          builtInZoomControls = true
+                          displayZoomControls = false
+                      }
+                  }
+                  setContentView(webView)
+                  webView.loadUrl("file:///android_asset/index.html")
+              }
+          }
+          EOF
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build Debug APK
+        run: gradle assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: IL76-PPS-v2.10-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
