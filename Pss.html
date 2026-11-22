@@ -1,0 +1,1339 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Іл-76 ПС-90А — Прев'ю ППС v2.10 (УСПС / ССП-2А / Контроль)</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <style>
+    body {
+      background: #0f1318;
+      color: #e5e7eb;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    canvas.panel-canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 10px;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .master-blink {
+      animation: fireBlink 0.4s steps(2, start) infinite;
+    }
+    @keyframes fireBlink {
+      0%   { background-color: #dc2626; box-shadow: 0 0 18px #ef4444; color: #fff; }
+      100% { background-color: #450a0a; box-shadow: none; color: #fca5a5; }
+    }
+  </style>
+</head>
+<body class="min-h-screen pb-10">
+  <header class="sticky top-0 z-30 bg-slate-950/95 backdrop-blur border-b border-slate-800 px-3 py-2.5">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-2.5">
+        <div id="masterWarnLamp" class="px-3 py-1 rounded font-bold text-xs tracking-wider border border-red-900 bg-red-950/60 text-red-400">
+          ПОЖАР
+        </div>
+        <div>
+          <h1 class="text-sm sm:text-base font-bold text-slate-100 leading-tight">Іл-76 ППС v2.10 (СПЗ / УСПС / ССП-2А)</h1>
+          <p class="text-[11px] text-slate-400">Синхронізовано з фінальними скриптами SASL 3 (v2.10 / v2.5 / v2.4)</p>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-1.5">
+        <button id="btnPowerDC" type="button" class="px-2.5 py-1.5 rounded text-xs font-semibold bg-emerald-700 hover:bg-emerald-600 text-white border border-emerald-500">
+          27В ПОСТ: ВКЛ
+        </button>
+        <span id="pillQ1" class="px-2 py-1 rounded text-[11px] font-mono bg-emerald-950 text-emerald-300 border border-emerald-700">1 ОЧ: 7/7</span>
+        <span id="pillQ2" class="px-2 py-1 rounded text-[11px] font-mono bg-emerald-950 text-emerald-300 border border-emerald-700">2 ОЧ: ОК</span>
+        <span id="pillQ3" class="px-2 py-1 rounded text-[11px] font-mono bg-emerald-950 text-emerald-300 border border-emerald-700">3 ОЧ: ОК</span>
+        <button id="btnResetAll" type="button" class="px-2.5 py-1.5 rounded text-xs font-semibold bg-sky-700 hover:bg-sky-600 text-white">
+          Перезарядити балони
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-3 pt-3 space-y-3">
+    <!-- Рядок повідомлень ИМ1 (КСЭИС-76, ідентично ps90_bskd_core.lua) -->
+    <section class="rounded-lg border border-cyan-700/70 bg-black/90 px-3 py-2">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
+        <span class="text-[11px] font-mono uppercase tracking-wider text-cyan-400">ИМ1 (КСЭИС-76) — Табло з ps90_bskd_core.lua</span>
+        <span id="modeBadge" class="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-800 text-emerald-300">РЕЖИМ: ПОЖАРОТУШ.</span>
+      </div>
+      <div id="im1Messages" class="min-h-[24px] flex flex-wrap gap-2 font-mono text-xs text-slate-400">
+        <span>Немає активних аварійних або попереджувальних повідомлень</span>
+      </div>
+    </section>
+
+    <!-- Панель інструктора -->
+    <section class="rounded-lg border border-slate-800 bg-slate-900/80 p-3">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+        <span class="text-xs font-semibold text-slate-300">Інструктор відмов (ССП-2А / ДПС-1АГ / msg_gallery ЖИВО)</span>
+        <div class="flex flex-wrap gap-1.5">
+          <button data-tab="all"  type="button" class="tab-btn px-2.5 py-1 rounded text-xs font-medium bg-indigo-600 text-white">Усі 3 щитки</button>
+          <button data-tab="usps" type="button" class="tab-btn px-2.5 py-1 rounded text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700">1. УСПС</button>
+          <button data-tab="chk"  type="button" class="tab-btn px-2.5 py-1 rounded text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700">2. Вогнегасники</button>
+          <button data-tab="ctrl" type="button" class="tab-btn px-2.5 py-1 rounded text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700">3. Контроль ППС</button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-1.5 text-xs">
+        <button data-fail="eng1"  type="button" class="fail-btn px-2 py-1.5 rounded bg-red-950/70 hover:bg-red-900 border border-red-800 text-red-200">Пожежа ДВ 1</button>
+        <button data-fail="eng2"  type="button" class="fail-btn px-2 py-1.5 rounded bg-red-950/70 hover:bg-red-900 border border-red-800 text-red-200">Пожежа ДВ 2</button>
+        <button data-fail="eng3"  type="button" class="fail-btn px-2 py-1.5 rounded bg-red-950/70 hover:bg-red-900 border border-red-800 text-red-200">Пожежа ДВ 3</button>
+        <button data-fail="eng4"  type="button" class="fail-btn px-2 py-1.5 rounded bg-red-950/70 hover:bg-red-900 border border-red-800 text-red-200">Пожежа ДВ 4</button>
+        <button data-fail="wingL" type="button" class="fail-btn px-2 py-1.5 rounded bg-red-950/70 hover:bg-red-900 border border-red-800 text-red-200">Пожежа Крило Л</button>
+        <button data-fail="wingR" type="button" class="fail-btn px-2 py-1.5 rounded bg-red-950/70 hover:bg-red-900 border border-red-800 text-red-200">Пожежа Крило П</button>
+
+        <button data-fail="ovht1" type="button" class="fail-btn px-2 py-1.5 rounded bg-amber-950/70 hover:bg-amber-900 border border-amber-700 text-amber-200">Перегрів ДВ 1</button>
+        <button data-fail="ovht2" type="button" class="fail-btn px-2 py-1.5 rounded bg-amber-950/70 hover:bg-amber-900 border border-amber-700 text-amber-200">Перегрів ДВ 2</button>
+        <button data-fail="ovht3" type="button" class="fail-btn px-2 py-1.5 rounded bg-amber-950/70 hover:bg-amber-900 border border-amber-700 text-amber-200">Перегрів ДВ 3</button>
+        <button data-fail="ovht4" type="button" class="fail-btn px-2 py-1.5 rounded bg-amber-950/70 hover:bg-amber-900 border border-amber-700 text-amber-200">Перегрів ДВ 4</button>
+        <button data-fail="vsu"   type="button" class="fail-btn px-2 py-1.5 rounded bg-red-950/70 hover:bg-red-900 border border-red-800 text-red-200">Пожежа ВСУ</button>
+        <button data-fail="smoke" type="button" class="fail-btn px-2 py-1.5 rounded bg-purple-950/70 hover:bg-purple-900 border border-purple-700 text-purple-200">Дим вантажний</button>
+      </div>
+
+      <div class="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400">
+        <div class="flex flex-wrap items-center gap-3">
+          <label class="inline-flex items-center gap-1.5 cursor-pointer">
+            <input id="chkNoAuto" type="checkbox" class="rounded bg-slate-800 border-slate-600" />
+            <span>Незгасла пожежа (тест ручних 2-ї та 3-ї черг)</span>
+          </label>
+
+        </div>
+        <button id="btnBelly" type="button" class="px-2.5 py-1 rounded bg-orange-900/80 hover:bg-orange-800 border border-orange-600 text-orange-100 font-medium">
+          Посадка «на черево» (розряд усіх черг)
+        </button>
+      </div>
+    </section>
+
+    <!-- Контейнери 3 щитків -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+      <!-- 1. Щиток УСПС (v2.5) -->
+      <section id="secUsps" class="lg:col-span-12 rounded-xl border border-slate-800 bg-slate-900/70 p-3">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+          <h2 class="text-sm font-semibold text-slate-200">1. Щиток протипожарної системи (УСПС) — <span class="font-mono text-xs text-slate-400">fire_usps_panel.lua v2.10</span></h2>
+          <span class="text-[11px] text-slate-400">Тап/ЛКМ: відкрити ковпачок → 1 (верх), 2 (ліво), 3 (право) | Низ кришки / ПКМ: закрити</span>
+        </div>
+        <div class="max-w-4xl mx-auto">
+          <canvas id="cvUsps" width="960" height="680" class="panel-canvas"></canvas>
+        </div>
+        <!-- Сенсорна панель черг для смартфонів -->
+        <div class="mt-3 rounded-lg border border-slate-700/80 bg-slate-950/80 p-2.5 space-y-2">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="text-xs font-semibold text-slate-300">Швидкий розряд черг (зручно на смартфоні):</span>
+            <span id="uspsActionToast" class="text-xs font-mono text-amber-300">Оберіть відсік або відкрийте ковпачок на щитку</span>
+          </div>
+          <div class="flex flex-wrap items-center gap-1.5">
+            <select id="selUspsZone" aria-label="Вибір відсіку УСПС" class="px-2.5 py-2 rounded bg-slate-800 border border-slate-600 text-xs font-semibold text-slate-100">
+              <option value="eng0">ДВ 1 (Гондола 1)</option>
+              <option value="eng1">ДВ 2 (Гондола 2)</option>
+              <option value="eng2">ДВ 3 (Гондола 3)</option>
+              <option value="eng3">ДВ 4 (Гондола 4)</option>
+              <option value="wL">Крило Ліве</option>
+              <option value="wR">Крило Праве</option>
+              <option value="vsu">ВСУ</option>
+            </select>
+            <button id="btnTouchCap" type="button" class="px-3 py-2 rounded bg-red-900/90 hover:bg-red-800 border border-red-600 text-xs font-semibold text-white">Ковпачок</button>
+            <button id="btnTouchQ1" type="button" class="px-3.5 py-2 rounded bg-amber-700 hover:bg-amber-600 border border-amber-400 text-xs font-bold text-white">1 ОЧЕР.</button>
+            <button id="btnTouchQ2" type="button" class="px-3.5 py-2 rounded bg-amber-700 hover:bg-amber-600 border border-amber-400 text-xs font-bold text-white">2 ОЧЕР.</button>
+            <button id="btnTouchQ3" type="button" class="px-3.5 py-2 rounded bg-amber-700 hover:bg-amber-600 border border-amber-400 text-xs font-bold text-white">3 ОЧЕР.</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. Щиток перевірки вогнегасників (v2.4) -->
+      <section id="secChk" class="lg:col-span-6 rounded-xl border border-slate-800 bg-slate-900/70 p-3">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+          <h2 class="text-sm font-semibold text-slate-200">2. Щиток перевірки вогнегасників — <span class="font-mono text-xs text-slate-400">fire_exting_check_panel.lua v2.4</span></h2>
+        </div>
+        <div class="max-w-xl mx-auto">
+          <canvas id="cvChk" width="540" height="380" class="panel-canvas"></canvas>
+        </div>
+        <div class="mt-2.5 flex flex-wrap items-center justify-center gap-2">
+          <button id="btnRotPrev" type="button" class="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 border border-slate-600 text-xs font-semibold">◀ Галетник</button>
+          <span id="lblRotPos" class="px-2.5 py-1 rounded bg-slate-950 font-mono text-xs text-amber-300 border border-slate-700">ОТКЛ.</span>
+          <button id="btnRotNext" type="button" class="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 border border-slate-600 text-xs font-semibold">Галетник ▶</button>
+          <button id="btnHoldCheck" type="button" class="px-3 py-1.5 rounded bg-emerald-800 hover:bg-emerald-700 border border-emerald-500 text-xs font-semibold text-white">Утримувати: Тест ламп / Розблокування</button>
+        </div>
+      </section>
+
+      <!-- 3. Щиток контролю ППС (v2.4) -->
+      <section id="secCtrl" class="lg:col-span-6 rounded-xl border border-slate-800 bg-slate-900/70 p-3">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+          <h2 class="text-sm font-semibold text-slate-200">3. Щиток контролю ППС — <span class="font-mono text-xs text-slate-400">fire_control_panel.lua v2.10</span></h2>
+        </div>
+        <div class="max-w-md mx-auto">
+          <canvas id="cvCtrl" width="480" height="560" class="panel-canvas"></canvas>
+        </div>
+        <div class="mt-2.5 flex flex-wrap items-center justify-center gap-2">
+          <button id="btnToggleDoor" type="button" class="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 border border-slate-600 text-xs font-semibold">Відкрити / закрити кришку</button>
+          <button id="btnToggleMode" type="button" class="px-3 py-1.5 rounded bg-amber-900/80 hover:bg-amber-800 border border-amber-600 text-xs font-semibold text-amber-100">ПРОВЕРКА / ПОЖАРОТУШ.</button>
+        </div>
+      </section>
+    </div>
+
+    <!-- Згортуваний монітор DataRefs -->
+    <details class="rounded-xl border border-slate-800 bg-slate-900/70 p-3">
+      <summary class="cursor-pointer text-xs font-semibold text-slate-300 select-none">Монітор Custom DataRefs v2.10 (custom/il76/fire/*)</summary>
+      <pre id="drDump" class="mt-2 p-2.5 rounded bg-black/80 text-[11px] font-mono text-emerald-300 overflow-x-auto leading-relaxed"></pre>
+    </details>
+  </main>
+
+  <script>
+    // =========================================================================
+    // 1. СТАН СИСТЕМИ (1:1 ДО ps90_fire_logic.lua v2.10)
+    // =========================================================================
+    const S = {
+      dc_ok: true,
+      ctrl_door_open: 0,
+      ctrl_main_mode: 0, // 0: ПОЖАРОТУШ., 1: ПРОВЕРКА
+      ctrl_btn_smoke: 0,
+      ctrl_smoke_rotary: 0,
+      ctrl_eng_grp_123: 0,
+      ctrl_eng_grp_456: 0,
+      ctrl_eng_grp_789: 0,
+      ctrl_vsu_grp_123: 0,
+      ctrl_wing_grp_12: 0,
+      ctrl_wing_grp_34: 0,
+
+      check_rotary_pos: 0,
+      btn_check_lamps: 0,
+      check_lamp_queue: [0, 0, 0],
+
+      // 1-ша черга по 7 відсіках (0..3=ДВ1..4, 4=Крило Л, 5=Крило П, 6=ВСУ)
+      q1_intact: [1, 1, 1, 1, 1, 1, 1],
+      // Спільні резервні колектори 2-ї та 3-ї черг
+      reserve_intact: { 2: 1, 3: 1 },
+
+      fail_eng_fire: [0, 0, 0, 0],
+      fail_eng_ovht: [0, 0, 0, 0],
+      fail_wing_l: 0,
+      fail_wing_r: 0,
+      fail_vsu: 0,
+      fail_smoke: 0,
+
+      wing_valve_open_l: false,
+      wing_valve_open_r: false,
+
+      latch_eng_fire: [false, false, false, false],
+      latch_wing_l: false,
+      latch_wing_r: false,
+      latch_vsu: false,
+      latch_smoke: false,
+
+      auto_q1_eng: [false, false, false, false],
+      auto_q1_wl: false,
+      auto_q1_wr: false,
+      auto_q1_vsu: false,
+
+      lamp_eng_fire: [0, 0, 0, 0],
+      lamp_eng_ovht: [0, 0, 0, 0],
+      arrow_eng: [0, 0, 0, 0],
+      lamp_wing_l: 0,
+      lamp_wing_r: 0,
+      arrow_wing_l: 0,
+      arrow_wing_r: 0,
+      lamp_valve_l: 0,
+      lamp_valve_r: 0,
+      lamp_vsu: 0,
+      arrow_vsu: 0,
+      lamp_smoke_cargo: 0,
+      lamp_master_warn: 0,
+      blink_on: true,
+
+      core_fire_eng: [0, 0, 0, 0],
+      core_fire_wing_l: 0,
+      core_fire_wing_r: 0,
+      core_fire_apu: 0,
+      core_overheat_mg: 0,
+
+      cap_eng: [0, 0, 0, 0],
+      cap_wing_l: 0,
+      cap_wing_r: 0,
+      cap_vsu: 0,
+
+      sw_stop: [0, 0, 0, 0],
+      cap_stop: [0, 0, 0, 0],
+      lamp_fuel_cut: [0, 0, 0, 0],
+      fuel_valve_closed: [0, 0, 0, 0],
+
+      im1: [],
+      active_q_anim: {},
+      toast: "Оберіть відсік або відкрийте ковпачок на щитку",
+    };
+
+    const ROT_NAMES = [
+      "ОТКЛ.", "МОТОГОНД. I", "МОТОГОНД. II", "МОТОГОНД. III",
+      "МОТОГОНД. IV", "КРЫЛЬЯ ЛЕВ.", "КРЫЛЬЯ ПРАВ.", "ВСУ", "РЕЗЕРВ", "ОТКЛ."
+    ];
+
+    function compLabel(comp, idx) {
+      if (comp === "ENG") return `ДВ ${idx + 1}`;
+      if (comp === "WING_L") return "Крило Ліве";
+      if (comp === "WING_R") return "Крило Праве";
+      if (comp === "VSU") return "ВСУ";
+      return "Усі відсіки";
+    }
+
+    function zoneIndex(comp, idx) {
+      if (comp === "ENG") return idx; // 0..3
+      if (comp === "WING_L") return 4;
+      if (comp === "WING_R") return 5;
+      if (comp === "VSU") return 6;
+      return -1;
+    }
+
+    function flashLever(swId, q) {
+      if (!swId) return;
+      S.active_q_anim[swId] = q;
+      setTimeout(() => {
+        if (S.active_q_anim[swId] === q) {
+          S.active_q_anim[swId] = 0;
+          drawUsps();
+        }
+      }, 350);
+    }
+
+    function dischargeQueue(q, comp, idx, swId) {
+      if (q < 1 || q > 3) return false;
+      if (!S.dc_ok) { S.toast = "Немає живлення 27В ПОСТ!"; return false; }
+      if (S.ctrl_door_open === 1 && S.ctrl_main_mode === 1) {
+        S.toast = "Заблоковано: щиток контролю в режимі ПРОВЕРКА";
+        return false;
+      }
+
+      if (comp === "ALL") {
+        S.q1_intact = [0, 0, 0, 0, 0, 0, 0];
+        S.reserve_intact[2] = 0;
+        S.reserve_intact[3] = 0;
+        S.wing_valve_open_l = true;
+        S.wing_valve_open_r = true;
+        S.fail_eng_fire = [0, 0, 0, 0];
+        S.fail_wing_l = 0; S.fail_wing_r = 0; S.fail_vsu = 0;
+        S.toast = "Посадка «на черево»: розряджено всі черги в усі відсіки!";
+        return true;
+      }
+
+      const z = zoneIndex(comp, idx);
+      if (z < 0) return false;
+
+      flashLever(swId, q);
+
+      if (q === 1) {
+        if (S.q1_intact[z] !== 1) {
+          S.toast = `1-ша черга (${compLabel(comp, idx)}) вже розряджена! Оберіть 2-гу або 3-тю`;
+          return false;
+        }
+        S.q1_intact[z] = 0;
+      } else {
+        if (S.reserve_intact[q] !== 1) {
+          S.toast = `${q}-тя резервна черга вже порожня!`;
+          return false;
+        }
+        S.reserve_intact[q] = 0;
+      }
+
+      const forceKeep = document.getElementById("chkNoAuto").checked && q < 3;
+      const prob = q === 1 ? 0.75 : (q === 2 ? 0.95 : 1.0);
+      const ok = !forceKeep && (Math.random() <= prob);
+
+      if (comp === "WING_L") S.wing_valve_open_l = true;
+      if (comp === "WING_R") S.wing_valve_open_r = true;
+
+      const delayMs = (q === 1) ? 2500 : 1200;
+      S.toast = `Розряджено ${q}-шу чергу → ${compLabel(comp, idx)} (подача хладону...)`;
+
+      setTimeout(() => {
+        if (ok) {
+          if (comp === "ENG") S.fail_eng_fire[idx] = 0;
+          else if (comp === "WING_L") S.fail_wing_l = 0;
+          else if (comp === "WING_R") S.fail_wing_r = 0;
+          else if (comp === "VSU") S.fail_vsu = 0;
+          S.toast = `${compLabel(comp, idx)}: пожежу ліквідовано (${q}-ша черга)`;
+        } else {
+          S.toast = `${compLabel(comp, idx)}: пожежа НЕ ліквідована — застосуйте наступну чергу!`;
+        }
+        updateLogic();
+      }, delayMs);
+
+      return true;
+    }
+
+    function getEngTestMask(testMode) {
+      const m = [false, false, false, false];
+      if (!testMode) return m;
+      const g1 = S.ctrl_eng_grp_123, g2 = S.ctrl_eng_grp_456, g3 = S.ctrl_eng_grp_789;
+      if (g1 === 1) m[0] = true;
+      else if (g1 === 2) m[1] = true;
+      else if (g1 === 3) m[2] = true;
+
+      if (g2 === 1) m[3] = true;
+      else if (g2 === 2) { m[0] = true; m[1] = true; }
+      else if (g2 === 3) { m[2] = true; m[3] = true; }
+
+      if (g3 === 1) { m[0] = true; m[3] = true; }
+      else if (g3 === 2) { m[1] = true; m[2] = true; }
+      else if (g3 === 3) { m[0] = m[1] = m[2] = m[3] = true; }
+      return m;
+    }
+
+    function updateLogic() {
+      // Закрита кришка скидає ЛИШЕ ctrl_main_mode (ctrl_vsu_slider зберігається!)
+      if (S.ctrl_door_open === 0 && S.ctrl_main_mode !== 0) {
+        S.ctrl_main_mode = 0;
+      }
+
+      const dc = S.dc_ok;
+      const testMode = (S.ctrl_door_open === 1) && (S.ctrl_main_mode === 1);
+      const msgs = [];
+
+      if (S.btn_check_lamps === 1 && dc) {
+        for (let i = 0; i < 4; i++) if (S.fail_eng_fire[i] === 0) S.latch_eng_fire[i] = false;
+        if (S.fail_wing_l === 0) S.latch_wing_l = false;
+        if (S.fail_wing_r === 0) S.latch_wing_r = false;
+        if (S.fail_vsu === 0) S.latch_vsu = false;
+      }
+      if (S.ctrl_btn_smoke === 1 && dc && S.fail_smoke === 0) {
+        S.latch_smoke = false;
+      }
+
+      const tEng = getEngTestMask(testMode);
+      const tVsu = testMode && (S.ctrl_vsu_grp_123 > 0);
+      const tWL  = testMode && (S.ctrl_wing_grp_12 > 0);
+      const tWR  = testMode && (S.ctrl_wing_grp_34 > 0);
+      const tSmk = (S.ctrl_btn_smoke === 1 && S.ctrl_smoke_rotary > 0);
+
+      let master = false;
+      let anyOvht = false;
+
+      for (let i = 0; i < 4; i++) {
+        let isFire = S.fail_eng_fire[i] === 1;
+        const isOvht = S.fail_eng_ovht[i] === 1;
+
+        if (dc && isOvht && !isFire) {
+          S.lamp_eng_ovht[i] = 1;
+          anyOvht = true;
+        } else {
+          S.lamp_eng_ovht[i] = 0;
+        }
+
+        if (isFire) {
+          S.latch_eng_fire[i] = true;
+          if (dc && !testMode && !S.auto_q1_eng[i]) {
+            S.auto_q1_eng[i] = true;
+            dischargeQueue(1, "ENG", i);
+          }
+        } else {
+          S.auto_q1_eng[i] = false;
+        }
+
+        isFire = S.fail_eng_fire[i] === 1;
+        S.core_fire_eng[i] = (dc && isFire) ? 1 : 0;
+        if (S.core_fire_eng[i] === 1) {
+          msgs.push({ text: `■ ДВ${i + 1}. ПОЖАР В ГОНДОЛЕ`, rank: 0 });
+        }
+
+        if (dc && (isFire || tEng[i])) master = true;
+        S.lamp_eng_fire[i] = (dc && (isFire || tEng[i])) ? 1 : 0;
+        S.arrow_eng[i] = (dc && (isFire || S.latch_eng_fire[i] || tEng[i])) ? 1 : 0;
+
+        const stopAct = S.sw_stop[i] === 1;
+        S.fuel_valve_closed[i] = stopAct ? 1 : 0;
+        S.lamp_fuel_cut[i] = (dc && stopAct) ? 1 : 0;
+      }
+
+      S.core_overheat_mg = anyOvht ? 1 : 0;
+      if (anyOvht) msgs.push({ text: "■ ПЕРЕГРЕВ МГ", rank: 1 });
+
+      if (S.fail_wing_l === 1) {
+        S.latch_wing_l = true;
+        if (dc && !testMode && !S.auto_q1_wl) { S.auto_q1_wl = true; dischargeQueue(1, "WING_L", 0); }
+      } else S.auto_q1_wl = false;
+
+      if (S.fail_wing_r === 1) {
+        S.latch_wing_r = true;
+        if (dc && !testMode && !S.auto_q1_wr) { S.auto_q1_wr = true; dischargeQueue(1, "WING_R", 0); }
+      } else S.auto_q1_wr = false;
+
+      const wlFire = S.fail_wing_l === 1;
+      const wrFire = S.fail_wing_r === 1;
+      S.core_fire_wing_l = (dc && wlFire) ? 1 : 0;
+      S.core_fire_wing_r = (dc && wrFire) ? 1 : 0;
+      if (S.core_fire_wing_l) msgs.push({ text: "■ ПОЖАР В КРЫЛЕ ЛЕВ", rank: 0 });
+      if (S.core_fire_wing_r) msgs.push({ text: "■ ПОЖАР В КРЫЛЕ ПРАВ", rank: 0 });
+
+      if (dc && (wlFire || tWL || wrFire || tWR)) master = true;
+      S.lamp_wing_l = (dc && (wlFire || tWL)) ? 1 : 0;
+      S.arrow_wing_l = (dc && (wlFire || S.latch_wing_l || tWL)) ? 1 : 0;
+      S.lamp_valve_l = (dc && (S.wing_valve_open_l || tWL)) ? 1 : 0;
+
+      S.lamp_wing_r = (dc && (wrFire || tWR)) ? 1 : 0;
+      S.arrow_wing_r = (dc && (wrFire || S.latch_wing_r || tWR)) ? 1 : 0;
+      S.lamp_valve_r = (dc && (S.wing_valve_open_r || tWR)) ? 1 : 0;
+
+      let vsuDet = (S.fail_vsu === 1);
+      if (vsuDet) {
+        S.latch_vsu = true;
+        if (dc && !testMode && !S.auto_q1_vsu) { S.auto_q1_vsu = true; dischargeQueue(1, "VSU", 0); }
+      } else S.auto_q1_vsu = false;
+
+      vsuDet = (S.fail_vsu === 1);
+      S.core_fire_apu = (dc && vsuDet) ? 1 : 0;
+      if (S.core_fire_apu) msgs.push({ text: "■ ПОЖАР В ОТСЕКЕ ВСУ", rank: 0 });
+
+      if (dc && (vsuDet || tVsu)) master = true;
+      S.lamp_vsu = (dc && (vsuDet || tVsu)) ? 1 : 0;
+      S.arrow_vsu = (dc && (vsuDet || S.latch_vsu || tVsu)) ? 1 : 0;
+
+      const smkFire = S.fail_smoke === 1;
+      if (smkFire) S.latch_smoke = true;
+      if (dc && (smkFire || tSmk)) master = true;
+      S.lamp_smoke_cargo = (dc && (smkFire || S.latch_smoke || tSmk)) ? 1 : 0;
+      if (dc && (smkFire || S.latch_smoke)) msgs.push({ text: "■ ДЫМ В ГРУЗОВОЙ КАБИНЕ!", rank: 2 });
+
+      S.lamp_master_warn = (dc && master) ? 1 : 0;
+
+      const rot = S.check_rotary_pos;
+      const validZone = rot >= 1 && rot <= 7;
+      for (let q = 1; q <= 3; q++) {
+        let lit = 0;
+        if (dc) {
+          if (S.btn_check_lamps === 1) lit = 1;
+          else if (validZone) {
+            lit = (q === 1) ? S.q1_intact[rot - 1] : S.reserve_intact[q];
+          }
+        }
+        S.check_lamp_queue[q - 1] = lit;
+      }
+
+      S.im1 = msgs;
+      updateDOM();
+      drawAll();
+    }
+
+    function updateDOM() {
+      const mw = document.getElementById("masterWarnLamp");
+      mw.className = S.lamp_master_warn === 1
+        ? "px-3 py-1 rounded font-bold text-xs tracking-wider border border-red-400 master-blink"
+        : "px-3 py-1 rounded font-bold text-xs tracking-wider border border-red-900 bg-red-950/60 text-red-400";
+
+      const q1Cnt = S.q1_intact.reduce((a, b) => a + b, 0);
+      const p1 = document.getElementById("pillQ1");
+      p1.textContent = `1 ОЧ: ${q1Cnt}/7`;
+      p1.className = q1Cnt > 0
+        ? "px-2 py-1 rounded text-[11px] font-mono bg-emerald-950 text-emerald-300 border border-emerald-700"
+        : "px-2 py-1 rounded text-[11px] font-mono bg-red-950 text-red-300 border border-red-700";
+
+      for (const q of [2, 3]) {
+        const el = document.getElementById("pillQ" + q);
+        if (S.reserve_intact[q] === 1) {
+          el.textContent = `${q} ОЧ: ОК`;
+          el.className = "px-2 py-1 rounded text-[11px] font-mono bg-emerald-950 text-emerald-300 border border-emerald-700";
+        } else {
+          el.textContent = `${q} ОЧ: РОЗР`;
+          el.className = "px-2 py-1 rounded text-[11px] font-mono bg-red-950 text-red-300 border border-red-700";
+        }
+      }
+
+      const modeEl = document.getElementById("modeBadge");
+      const inTest = (S.ctrl_door_open === 1 && S.ctrl_main_mode === 1);
+      modeEl.textContent = inTest ? "РЕЖИМ: ПРОВЕРКА (ПІРОПАТРОНИ ЗАБЛОКОВАНІ)" : "РЕЖИМ: ПОЖАРОТУШ.";
+      modeEl.className = inTest
+        ? "text-[11px] font-mono px-2 py-0.5 rounded bg-amber-900/80 text-amber-200 border border-amber-500"
+        : "text-[11px] font-mono px-2 py-0.5 rounded bg-slate-800 text-emerald-300";
+
+      const im1El = document.getElementById("im1Messages");
+      if (S.im1.length === 0) {
+        im1El.innerHTML = '<span class="text-slate-500">Немає активних аварійних або попереджувальних повідомлень</span>';
+      } else {
+        im1El.innerHTML = S.im1.map(m => {
+          const cls = m.rank === 0 ? "text-red-400 font-bold" : "text-amber-300";
+          return `<span class="${cls}">${m.text}</span>`;
+        }).join("");
+      }
+
+      document.getElementById("lblRotPos").textContent = ROT_NAMES[S.check_rotary_pos] || "ОТКЛ.";
+      document.getElementById("uspsActionToast").textContent = S.toast;
+      document.querySelectorAll(".fail-btn").forEach(btn => {
+        const f = btn.dataset.fail;
+        let active = false;
+        if (f.startsWith("eng"))  active = S.fail_eng_fire[Number(f.slice(3)) - 1] === 1;
+        else if (f.startsWith("ovht")) active = S.fail_eng_ovht[Number(f.slice(4)) - 1] === 1;
+        else if (f === "wingL") active = S.fail_wing_l === 1;
+        else if (f === "wingR") active = S.fail_wing_r === 1;
+        else if (f === "vsu")   active = S.fail_vsu === 1;
+        else if (f === "smoke") active = S.fail_smoke === 1;
+        btn.classList.toggle("ring-2", active);
+        btn.classList.toggle("ring-yellow-300", active);
+        btn.classList.toggle("font-bold", active);
+      });
+
+      document.getElementById("drDump").textContent = JSON.stringify({
+        dc_powered: S.dc_ok ? 1 : 0,
+        lamp_master_warn: S.lamp_master_warn,
+        lamp_smoke_cargo: S.lamp_smoke_cargo,
+        q1_intact_count: q1Cnt,
+        q1_intact_zones_1_7: S.q1_intact,
+        bottle_intact_2_3: [S.reserve_intact[2], S.reserve_intact[3]],
+        fire_eng_1_4: S.core_fire_eng,
+        fire_wing_l_r: [S.core_fire_wing_l, S.core_fire_wing_r],
+        fire_apu: S.core_fire_apu,
+        overheat_mg: S.core_overheat_mg,
+        fuel_valve_closed_1_4: S.fuel_valve_closed,
+        lamp_valve_open_l_r: [S.lamp_valve_l, S.lamp_valve_r],
+        check_rotary_pos: S.check_rotary_pos,
+        check_lamp_queue_1_3: S.check_lamp_queue,
+        ctrl_door_open: S.ctrl_door_open,
+        ctrl_main_mode: S.ctrl_main_mode,
+      }, null, 2);
+    }
+
+    // =========================================================================
+    // 2. CANVAS 1: УСПС (960×680) — ІДЕНТИЧНО fire_usps_panel.lua v2.10
+    // =========================================================================
+    const cvUsps = document.getElementById("cvUsps");
+    const gU = cvUsps.getContext("2d");
+    const ENG_X = [92, 240, 720, 868];
+    const QUEUE_SW = [
+      { id: "eng0", x: 92,  y: 240, comp: "ENG", idx: 0, getCap: () => S.cap_eng[0], setCap: v => S.cap_eng[0] = v },
+      { id: "eng1", x: 240, y: 240, comp: "ENG", idx: 1, getCap: () => S.cap_eng[1], setCap: v => S.cap_eng[1] = v },
+      { id: "eng2", x: 720, y: 240, comp: "ENG", idx: 2, getCap: () => S.cap_eng[2], setCap: v => S.cap_eng[2] = v },
+      { id: "eng3", x: 868, y: 240, comp: "ENG", idx: 3, getCap: () => S.cap_eng[3], setCap: v => S.cap_eng[3] = v },
+      { id: "wL",   x: 425, y: 485, comp: "WING_L", idx: 0, getCap: () => S.cap_wing_l, setCap: v => S.cap_wing_l = v },
+      { id: "wR",   x: 535, y: 485, comp: "WING_R", idx: 0, getCap: () => S.cap_wing_r, setCap: v => S.cap_wing_r = v },
+      { id: "vsu",  x: 398, y: 115, comp: "VSU",    idx: 0, getCap: () => S.cap_vsu,    setCap: v => S.cap_vsu = v },
+    ];
+    const STOP_SW = [
+      { idx: 0, sx: 92,  lx: 164 },
+      { idx: 1, sx: 240, lx: 312 },
+      { idx: 2, sx: 720, lx: 648 },
+      { idx: 3, sx: 868, lx: 796 },
+    ];
+
+    const uy = (y) => 680 - y;
+
+    function drawAnn(ctx, cx, cy, w, h, l1, l2, on, amber) {
+      const yTop = uy(cy) - h / 2;
+      ctx.fillStyle = "#141619";
+      ctx.fillRect(cx - w / 2 - 3, yTop - 3, w + 6, h + 6);
+      ctx.strokeStyle = "#595e66"; ctx.lineWidth = 1.5;
+      ctx.strokeRect(cx - w / 2 - 3, yTop - 3, w + 6, h + 6);
+
+      ctx.fillStyle = amber
+        ? (on ? "#ffc71a" : "#6b401c")
+        : (on ? "#fa1f19" : "#4d121f");
+      ctx.fillRect(cx - w / 2, yTop, w, h);
+
+      ctx.fillStyle = on ? "#141619" : (amber ? "#a66b33" : "#8c2638");
+      ctx.font = "bold 12px Inter, sans-serif";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      if (l2) {
+        ctx.fillText(l1, cx, uy(cy) - 7);
+        ctx.fillText(l2, cx, uy(cy) + 8);
+      } else {
+        ctx.fillText(l1, cx, uy(cy));
+      }
+    }
+
+    function drawArrowLamp(ctx, cx, cy, on) {
+      const y = uy(cy);
+      ctx.beginPath(); ctx.arc(cx, y, 24, 0, Math.PI * 2);
+      ctx.fillStyle = "#141619"; ctx.fill();
+      ctx.strokeStyle = "#a6abb2"; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.beginPath(); ctx.arc(cx, y, 19, 0, Math.PI * 2);
+      ctx.fillStyle = "#292b2e"; ctx.fill();
+      ctx.fillStyle = on ? "#ffc71a" : "#8c4d19";
+      ctx.fillRect(cx - 3, y - 11, 6, 13);
+      ctx.beginPath();
+      ctx.moveTo(cx - 9, y + 2); ctx.lineTo(cx + 9, y + 2); ctx.lineTo(cx, y + 13);
+      ctx.closePath(); ctx.fill();
+    }
+
+    function drawRoundLamp(ctx, cx, cy, r, on, green) {
+      const y = uy(cy);
+      ctx.beginPath(); ctx.arc(cx, y, r + 4, 0, Math.PI * 2);
+      ctx.fillStyle = "#141619"; ctx.fill();
+      ctx.strokeStyle = "#a6abb2"; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.beginPath(); ctx.arc(cx, y, r, 0, Math.PI * 2);
+      ctx.fillStyle = green
+        ? (on ? "#19f259" : "#144238")
+        : (on ? "#ffd026" : "#b86114");
+      ctx.fill();
+      if (on) {
+        ctx.beginPath(); ctx.arc(cx - r * 0.25, y - r * 0.25, r * 0.35, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(255,255,220,0.75)"; ctx.fill();
+      }
+    }
+
+    function drawUsps() {
+      const ctx = gU;
+      ctx.fillStyle = "#212426"; ctx.fillRect(0, 0, 960, 680);
+      ctx.strokeStyle = "#595e66"; ctx.lineWidth = 3;
+      ctx.strokeRect(2, 2, 956, 676);
+
+      // 4 кутові гвинти кріплення щитка
+      for (const [sx, sy] of [[22, 658], [938, 658], [22, 22], [938, 22]]) {
+        ctx.beginPath(); ctx.arc(sx, uy(sy), 10, 0, Math.PI * 2);
+        ctx.fillStyle = "#141619"; ctx.fill();
+        ctx.strokeStyle = "#595e66"; ctx.lineWidth = 1.5; ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(sx - 5, uy(sy) - 5); ctx.lineTo(sx + 5, uy(sy) + 5);
+        ctx.moveTo(sx - 5, uy(sy) + 5); ctx.lineTo(sx + 5, uy(sy) - 5);
+        ctx.stroke();
+      }
+
+      // Штатний заголовок (без сторонніх табло ПОЖАР / ДЫМ на самому щитку УСПС)
+      ctx.fillStyle = "#e6e8eb"; ctx.font = "bold 20px Inter, sans-serif";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText("П  Р  О  Т  И  В  О  П  О  Ж  А  Р  Н  А  Я        З  А  Щ  И  Т  А", 480, uy(656));
+
+      // Точний білий силует Іл-76 (крило + округлі борти фюзеляжу + обтічники шасі + опукле днище)
+      ctx.strokeStyle = "#e6e8eb"; ctx.lineWidth = 3; ctx.lineJoin = "round"; ctx.lineCap = "round";
+      // 1. Крило + округлі борти + внутрішня V-трапеція під «КРАН ОТКР.»
+      ctx.beginPath();
+      ctx.moveTo(48, uy(634)); ctx.lineTo(912, uy(634));
+      ctx.lineTo(936, uy(574)); ctx.lineTo(660, uy(574));
+      ctx.quadraticCurveTo(636, uy(554), 642, uy(494));
+      ctx.quadraticCurveTo(640, uy(456), 626, uy(420));
+      ctx.lineTo(548, uy(342)); ctx.lineTo(412, uy(342));
+      ctx.lineTo(334, uy(420));
+      ctx.quadraticCurveTo(320, uy(456), 318, uy(494));
+      ctx.quadraticCurveTo(324, uy(554), 300, uy(574));
+      ctx.lineTo(24, uy(574));
+      ctx.closePath(); ctx.stroke();
+
+      // 2. Лівий обтічник шасі (навколо «ПОЖАР ВСУ», з розривом біля ВСУ)
+      ctx.beginPath();
+      for (let s = 0; s <= 24; s++) {
+        const a = (100 + (292 - 100) * (s / 24)) * Math.PI / 180;
+        const px = 344 + Math.cos(a) * 62;
+        const py = uy(356 + Math.sin(a) * 62);
+        if (s === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+
+      // 3. Правий обтічник шасі (симетрична дуга, що переходить у днище)
+      ctx.beginPath();
+      for (let s = 0; s <= 24; s++) {
+        const a = (80 + (-142 - 80) * (s / 24)) * Math.PI / 180;
+        const px = 616 + Math.cos(a) * 62;
+        const py = uy(356 + Math.sin(a) * 62);
+        if (s === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+
+      // 4. Нижня опукла дуга днища + коротка центральна перемичка + риска «|» між крилами
+      ctx.beginPath();
+      for (let s = 0; s <= 18; s++) {
+        const a = (240 + (300 - 240) * (s / 18)) * Math.PI / 180;
+        const px = 480 + Math.cos(a) * 152;
+        const py = uy(470 + Math.sin(a) * 152);
+        if (s === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(480, uy(318)); ctx.lineTo(480, uy(342));
+      ctx.moveTo(480, uy(470)); ctx.lineTo(480, uy(500));
+      ctx.stroke();
+
+      drawAnn(ctx, 160, 608, 96, 36, "ПОЖАР", "В КРЫЛЕ", S.lamp_wing_l === 1, false);
+      ctx.fillStyle = "#e6e8eb"; ctx.font = "bold 15px Inter, sans-serif";
+      ctx.fillText("К Р Ы Л О   ⇨", 295, uy(608));
+      drawArrowLamp(ctx, 425, 608, S.arrow_wing_l === 1);
+
+      drawArrowLamp(ctx, 535, 608, S.arrow_wing_r === 1);
+      ctx.fillStyle = "#e6e8eb";
+      ctx.fillText("⇦   К Р Ы Л О", 665, uy(608));
+      drawAnn(ctx, 800, 608, 96, 36, "ПОЖАР", "В КРЫЛЕ", S.lamp_wing_r === 1, false);
+
+      drawRoundLamp(ctx, 425, 368, 16, S.lamp_valve_l === 1, true);
+      drawRoundLamp(ctx, 535, 368, 16, S.lamp_valve_r === 1, true);
+      ctx.fillStyle = "#e6e8eb"; ctx.font = "bold 13px Inter, sans-serif";
+      ctx.fillText("КРАН", 480, uy(376));
+      ctx.fillText("ОТКР.", 480, uy(360));
+
+      for (let i = 0; i < 4; i++) {
+        const ex = ENG_X[i];
+        ctx.beginPath(); ctx.arc(ex, uy(488), 70, 0, Math.PI * 2);
+        ctx.strokeStyle = "#e6e8eb"; ctx.lineWidth = 2.5; ctx.stroke();
+        ctx.fillStyle = "#e6e8eb"; ctx.font = "bold 15px Inter, sans-serif";
+        ctx.fillText(String(i + 1), ex, uy(565));
+
+        drawAnn(ctx, ex, 514, 96, 38, "ПОЖАР", "В ГОНД", S.lamp_eng_fire[i] === 1, false);
+        drawAnn(ctx, ex, 458, 96, 38, "ПЕРЕГР.", "ГОНД.", S.lamp_eng_ovht[i] === 1, true);
+        ctx.fillStyle = "#e6e8eb"; ctx.font = "bold 13px Inter, sans-serif";
+        ctx.fillText("ГОНДОЛА", ex, uy(400));
+        drawArrowLamp(ctx, ex, 364, S.arrow_eng[i] === 1);
+      }
+
+      drawAnn(ctx, 336, 336, 86, 36, "ПОЖАР", "ВСУ", S.lamp_vsu === 1, false);
+      ctx.fillStyle = "#e6e8eb"; ctx.font = "bold 14px Inter, sans-serif";
+      ctx.fillText("ВСУ", 398, uy(270));
+      drawArrowLamp(ctx, 398, 232, S.arrow_vsu === 1);
+
+      for (const sw of QUEUE_SW) {
+        const x = sw.x, y = uy(sw.y);
+        const open = sw.getCap() === 1;
+        const animQ = S.active_q_anim[sw.id] || 0;
+        ctx.font = "bold 15px Inter, sans-serif";
+        ctx.fillStyle = animQ === 1 ? "#ffc71a" : "#e6e8eb"; ctx.fillText("1", x, y - 62);
+        ctx.fillStyle = animQ === 2 ? "#ffc71a" : "#e6e8eb"; ctx.fillText("2", x - 36, y);
+        ctx.fillStyle = animQ === 3 ? "#ffc71a" : "#e6e8eb"; ctx.fillText("3", x + 36, y);
+
+        ctx.fillStyle = "#141619"; ctx.fillRect(x - 24, y - 34, 48, 68);
+        ctx.strokeStyle = "#595e66"; ctx.lineWidth = 1.5; ctx.strokeRect(x - 24, y - 34, 48, 68);
+
+        if (!open) {
+          ctx.fillStyle = "#940f0f"; ctx.fillRect(x - 20, y - 54, 40, 102);
+          ctx.fillStyle = "#bf1f1f"; ctx.fillRect(x - 20, y - 54, 40, 8);
+          ctx.fillStyle = "#590808"; ctx.fillRect(x - 20, y + 44, 40, 8);
+        } else {
+          // Відкинута ВНИЗ кришка (v2.5: не перекриває цифру «1» зверху!)
+          ctx.fillStyle = "#940f0f"; ctx.fillRect(x - 18, y + 32, 36, 20);
+          ctx.strokeStyle = "#bf1f1f"; ctx.strokeRect(x - 18, y + 32, 36, 20);
+          ctx.strokeStyle = animQ === 1 ? "#fbbf24" : "rgba(251,191,36,0.55)";
+          ctx.strokeRect(x - 16, y - 48, 32, 32);
+          ctx.strokeStyle = animQ === 2 ? "#fbbf24" : "rgba(251,191,36,0.55)";
+          ctx.strokeRect(x - 46, y - 14, 24, 28);
+          ctx.strokeStyle = animQ === 3 ? "#fbbf24" : "rgba(251,191,36,0.55)";
+          ctx.strokeRect(x + 22, y - 14, 24, 28);
+        }
+        ctx.beginPath(); ctx.arc(x, y, 13, 0, Math.PI * 2); ctx.fillStyle = "#e6e8eb"; ctx.fill();
+        ctx.beginPath(); ctx.arc(x, y, 8, 0, Math.PI * 2); ctx.fillStyle = "#595e66"; ctx.fill();
+        const ldx = animQ === 2 ? -14 : (animQ === 3 ? 14 : 0);
+        const ldy = animQ === 1 ? -14 : 0;
+        if (animQ > 0) {
+          ctx.strokeStyle = "#f8fafc"; ctx.lineWidth = 6; ctx.lineCap = "round";
+          ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + ldx, y + ldy); ctx.stroke();
+        }
+        ctx.beginPath(); ctx.arc(x + ldx, y + ldy, 5, 0, Math.PI * 2); ctx.fillStyle = "#c7ccd1"; ctx.fill();
+      }
+
+      for (const st of STOP_SW) {
+        const x = st.sx, y = uy(78);
+        const open = S.cap_stop[st.idx] === 1;
+        const on = S.sw_stop[st.idx] === 1;
+
+        ctx.fillStyle = "#e6e8eb"; ctx.fillRect(x - 26, y - 26, 52, 52);
+        ctx.strokeStyle = "#595e66"; ctx.strokeRect(x - 26, y - 26, 52, 52);
+        ctx.beginPath(); ctx.arc(x, y, 16, 0, Math.PI * 2); ctx.fillStyle = "#595e66"; ctx.fill();
+
+        if (open) {
+          ctx.fillStyle = "#940f0f"; ctx.fillRect(x - 20, y + 24, 40, 46);
+          ctx.fillStyle = "#bf1f1f"; ctx.fillRect(x - 20, y + 24, 40, 6);
+          const tipY = on ? (y + 22) : (y - 20);
+          ctx.strokeStyle = "#c7ccd1"; ctx.lineWidth = 7; ctx.lineCap = "round";
+          ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, tipY); ctx.stroke();
+          ctx.beginPath(); ctx.arc(x, tipY, 5, 0, Math.PI * 2); ctx.fillStyle = "#fff"; ctx.fill();
+        } else {
+          ctx.fillStyle = "#940f0f"; ctx.fillRect(x - 20, y - 30, 40, 62);
+          ctx.fillStyle = "#bf1f1f"; ctx.fillRect(x - 20, y - 30, 40, 8);
+        }
+
+        drawRoundLamp(ctx, st.lx, 78, 16, S.lamp_fuel_cut[st.idx] === 1, false);
+        ctx.fillStyle = "#e6e8eb"; ctx.font = "bold 13px Inter, sans-serif";
+        ctx.fillText("ТОПЛ.", st.lx, uy(116));
+        ctx.fillText("ЗАКР.", st.lx, uy(101));
+        if (st.idx === 0 || st.idx === 3) {
+          ctx.fillText("ОСТАНОВ.", (x + st.lx) / 2, uy(38));
+        }
+      }
+    }
+
+    // =========================================================================
+    // 3. CANVAS 2: ЩИТОК ПЕРЕВІРКИ ВОГНЕГАСНИКІВ (540×380, v2.4)
+    // =========================================================================
+    const cvChk = document.getElementById("cvChk");
+    const gC = cvChk.getContext("2d");
+    const ROT_ANGLES = [-135, -165, 170, 140, 110, 75, 45, 10, -20, -50];
+    const ROT_LABELS = ["ОТКЛ.", "I", "II", "III", "IV", "КРЫЛЬЯ", "", "ВСУ", "", "ОТКЛ."];
+    const cy2 = (y) => 380 - y;
+
+    function drawChk() {
+      const ctx = gC;
+      ctx.fillStyle = "#6b808a"; ctx.fillRect(0, 0, 540, 380);
+      ctx.strokeStyle = "#404d54"; ctx.lineWidth = 4; ctx.strokeRect(4, 4, 532, 372);
+
+      ctx.fillStyle = "#ebf0f2"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.font = "bold 16px Inter, sans-serif";
+      ctx.fillText("ПРОВЕРКА ПИРОПАТРОНОВ ОГНЕТУШИТЕЛЕЙ", 270, cy2(352));
+      ctx.font = "bold 15px Inter, sans-serif";
+      ctx.fillText("СТАВИТЬ ЛАМПОЧКУ СМ-28-2", 270, cy2(328));
+
+      const pairX = [130, 270, 410];
+      for (let q = 0; q < 3; q++) {
+        const px = pairX[q];
+        const on = S.check_lamp_queue[q] === 1;
+        ctx.fillStyle = "#ebf0f2"; ctx.font = "bold 14px Inter, sans-serif";
+        ctx.fillText(`${q + 1} ОЧЕР.`, px, cy2(300));
+        ctx.strokeStyle = "#ebf0f2"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(px - 42, cy2(286)); ctx.lineTo(px + 42, cy2(286)); ctx.stroke();
+
+        for (const dx of [-24, 24]) {
+          ctx.beginPath(); ctx.arc(px + dx, cy2(256), 20, 0, Math.PI * 2);
+          ctx.fillStyle = "#141619"; ctx.fill();
+          ctx.beginPath(); ctx.arc(px + dx, cy2(256), 17, 0, Math.PI * 2);
+          ctx.fillStyle = on ? "#1ff56b" : "#0d4038"; ctx.fill();
+          ctx.beginPath(); ctx.arc(px + dx - 5, cy2(256) - 5, on ? 6 : 4, 0, Math.PI * 2);
+          ctx.fillStyle = on ? "rgba(220,255,230,0.8)" : "rgba(100,150,140,0.45)"; ctx.fill();
+        }
+      }
+
+      ctx.strokeStyle = "#ebf0f2"; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(18, cy2(222)); ctx.lineTo(522, cy2(222)); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(315, cy2(18)); ctx.lineTo(315, cy2(222)); ctx.stroke();
+
+      ctx.fillStyle = "#ebf0f2"; ctx.font = "bold 14px Inter, sans-serif";
+      ctx.fillText("ПРОВЕРЯЕМЫЙ ОТСЕК", 198, cy2(204));
+      ctx.font = "bold 13px Inter, sans-serif";
+      ctx.fillText("МОТО-", 78, cy2(132)); ctx.fillText("ГОНД.", 78, cy2(114));
+
+      const rcx = 210, rcy = cy2(102);
+      for (let pos = 0; pos <= 9; pos++) {
+        const rad = ROT_ANGLES[pos] * Math.PI / 180;
+        ctx.strokeStyle = "#ebf0f2"; ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(rcx + Math.cos(rad) * 46, rcy - Math.sin(rad) * 46);
+        ctx.lineTo(rcx + Math.cos(rad) * 56, rcy - Math.sin(rad) * 56);
+        ctx.stroke();
+        if (ROT_LABELS[pos]) {
+          ctx.font = "bold 12px Inter, sans-serif";
+          ctx.fillText(ROT_LABELS[pos], rcx + Math.cos(rad) * 74, rcy - Math.sin(rad) * 74);
+        }
+      }
+
+      const crad = ROT_ANGLES[S.check_rotary_pos] * Math.PI / 180;
+      ctx.beginPath(); ctx.arc(rcx, rcy, 30, 0, Math.PI * 2); ctx.fillStyle = "#52290f"; ctx.fill();
+      ctx.beginPath(); ctx.arc(rcx, rcy, 25, 0, Math.PI * 2); ctx.fillStyle = "#945224"; ctx.fill();
+      ctx.strokeStyle = "#945224"; ctx.lineWidth = 16; ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(rcx - Math.cos(crad) * 24, rcy + Math.sin(crad) * 24);
+      ctx.lineTo(rcx + Math.cos(crad) * 38, rcy - Math.sin(crad) * 38);
+      ctx.stroke();
+      ctx.strokeStyle = "#fff"; ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(rcx + Math.cos(crad) * 14, rcy - Math.sin(crad) * 14);
+      ctx.lineTo(rcx + Math.cos(crad) * 38, rcy - Math.sin(crad) * 38);
+      ctx.stroke();
+      ctx.beginPath(); ctx.arc(rcx, rcy, 7, 0, Math.PI * 2); ctx.fillStyle = "#ccd1d9"; ctx.fill();
+
+      ctx.fillStyle = "#ebf0f2"; ctx.font = "bold 13px Inter, sans-serif";
+      ctx.fillText("ПРОВЕРКА ЛАМП", 424, cy2(178));
+      ctx.fillText("П/ПАТР. ОГНЕТУШИТЕЛЕЙ", 424, cy2(160));
+      const bcx = 405, bcy = cy2(102);
+      ctx.beginPath(); ctx.arc(bcx, bcy, 39, 0, Math.PI * 2); ctx.fillStyle = "#ccd1d9"; ctx.fill();
+      ctx.beginPath(); ctx.arc(bcx, bcy, 36, 0, Math.PI * 2); ctx.fillStyle = "#141619"; ctx.fill();
+      ctx.beginPath(); ctx.arc(bcx, bcy, S.btn_check_lamps ? 31 : 34, 0, Math.PI * 2);
+      ctx.fillStyle = S.btn_check_lamps ? "#0f1114" : "#242629"; ctx.fill();
+      ctx.fillStyle = "#ebf0f2"; ctx.font = "bold 12px Inter, sans-serif";
+      ctx.fillText("И РАЗБЛОКИРОВКА ЛАМП", 424, cy2(44));
+      ctx.fillText("МЕСТА ПОЖАРА", 424, cy2(26));
+    }
+
+    // =========================================================================
+    // 4. CANVAS 3: ЩИТОК КОНТРОЛЮ ППС (480×560, v2.4)
+    // =========================================================================
+    const cvCtrl = document.getElementById("cvCtrl");
+    const gK = cvCtrl.getContext("2d");
+    const cy3 = (y) => 560 - y;
+
+    const TRI_SW = [
+      { x: 236, y: 408, key: "ctrl_eng_grp_123", up: "1ГР.", dr: "2ГР.", dl: "3ГР." },
+      { x: 368, y: 408, key: "ctrl_eng_grp_456", up: "4ГР.", dr: "5ГР.", dl: "6ГР." },
+      { x: 236, y: 228, key: "ctrl_eng_grp_789", up: "7ГР.", dr: "8ГР.", dl: "9ГР." },
+      { x: 368, y: 228, key: "ctrl_vsu_grp_123", up: "1ГР.", dr: "2ГР.", dl: "3ГР." },
+    ];
+    const BI_SW = [
+      { x: 236, y: 92, key: "ctrl_wing_grp_12", left: "1ГР.", right: "2ГР." },
+      { x: 368, y: 92, key: "ctrl_wing_grp_34", left: "3ГР.", right: "4ГР." },
+    ];
+    const smokeRad = (k) => (-125 - k * 29) * Math.PI / 180;
+
+    function drawCtrl() {
+      const ctx = gK;
+      ctx.fillStyle = "#6e828c"; ctx.fillRect(0, 0, 480, 560);
+      ctx.strokeStyle = "#38474f"; ctx.lineWidth = 4; ctx.strokeRect(4, 4, 472, 552);
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+
+      if (S.ctrl_door_open === 0) {
+        ctx.fillStyle = "#738791"; ctx.fillRect(16, 16, 434, 528);
+        ctx.strokeStyle = "#38474f"; ctx.lineWidth = 3; ctx.strokeRect(16, 16, 434, 528);
+        ctx.fillStyle = "#38474f"; ctx.fillRect(10, 26, 12, 508);
+        ctx.fillStyle = "#6e828c"; ctx.fillRect(370, 238, 98, 84);
+        ctx.strokeRect(370, 238, 98, 84);
+
+        ctx.fillStyle = "#edf2f5"; ctx.font = "bold 22px Inter, sans-serif";
+        ctx.fillText("ПРОВЕРКА СИСТЕМ", 220, cy3(360));
+        ctx.fillText("СИГНАЛИЗАЦИИ",    220, cy3(320));
+        ctx.fillText("О ПОЖАРЕ",        220, cy3(280));
+        ctx.fillStyle = "#d1d5db"; ctx.font = "12px Inter, sans-serif";
+        ctx.fillText("Натисніть на кришку, щоб відкрити", 220, cy3(42));
+        return;
+      }
+
+      ctx.fillStyle = "#38474f"; ctx.fillRect(6, 14, 24, 532);
+      ctx.fillStyle = "#edf2f5"; ctx.font = "bold 15px Inter, sans-serif";
+      ctx.fillText("ПРОВЕРКА СИСТЕМ ПОЖАРОТУШЕНИЯ", 248, cy3(532));
+      ctx.font = "bold 14px Inter, sans-serif";
+      ctx.fillText("ГОНДОЛЫ ДВИГАТЕЛЕЙ", 302, cy3(506));
+
+      ctx.strokeStyle = "#edf2f5"; ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(170, cy3(38));  ctx.lineTo(170, cy3(514));
+      ctx.moveTo(302, cy3(38));  ctx.lineTo(302, cy3(494));
+      ctx.moveTo(36,  cy3(314)); ctx.lineTo(170, cy3(314));
+      ctx.moveTo(170, cy3(344)); ctx.lineTo(444, cy3(344));
+      ctx.moveTo(170, cy3(160)); ctx.lineTo(444, cy3(160));
+      ctx.stroke();
+
+      const isTest = S.ctrl_main_mode === 1;
+      ctx.font = "bold 13px Inter, sans-serif";
+      ctx.fillStyle = "#edf2f5";
+      ctx.fillText("ГЛАВНЫЙ", 98, cy3(478));
+      ctx.fillText("ВЫКЛЮЧАТЕЛЬ", 98, cy3(462));
+      ctx.fillStyle = isTest ? "#ffc726" : "#edf2f5";
+      ctx.fillText("ПРОВЕРКА", 98, cy3(444));
+      ctx.fillStyle = !isTest ? "#ffc726" : "#edf2f5";
+      ctx.fillText("ПОЖАРОТУШ.", 98, cy3(330));
+
+      const my = cy3(378);
+      ctx.beginPath(); ctx.arc(98, my, 16, 0, Math.PI * 2); ctx.fillStyle = "#cc9961"; ctx.fill();
+      ctx.beginPath(); ctx.arc(98, my, 10, 0, Math.PI * 2); ctx.fillStyle = "#141619"; ctx.fill();
+      const tipY = isTest ? my - 26 : my + 26;
+      ctx.strokeStyle = "#ccd4db"; ctx.lineWidth = 8; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(98, my); ctx.lineTo(98, tipY); ctx.stroke();
+
+      ctx.fillStyle = "#edf2f5"; ctx.font = "bold 12px Inter, sans-serif";
+      ctx.fillText("ПРОВЕРКА И", 98, cy3(296));
+      ctx.fillText("РАЗБЛОКИРОВ", 98, cy3(280));
+      ctx.fillText("СИГНАЛИЗ. ДЫМА", 98, cy3(264));
+      ctx.beginPath(); ctx.arc(98, cy3(224), 30, 0, Math.PI * 2); ctx.fillStyle = "#ccd4db"; ctx.fill();
+      ctx.beginPath(); ctx.arc(98, cy3(224), S.ctrl_btn_smoke ? 24 : 26, 0, Math.PI * 2); ctx.fillStyle = "#141619"; ctx.fill();
+
+      // Галетник диму з точними радіальними підписами ОТКЛ., 1..10 (v2.4)
+      ctx.fillStyle = "#edf2f5"; ctx.font = "bold 12px Inter, sans-serif";
+      ctx.fillText("ПРОВЕРКА ДАТЧИК", 98, cy3(164));
+      const sry = cy3(92);
+      for (let k = 0; k <= 10; k++) {
+        const a = smokeRad(k);
+        ctx.beginPath(); ctx.arc(98 + Math.cos(a) * 40, sry - Math.sin(a) * 40, 3, 0, Math.PI * 2);
+        ctx.fillStyle = k === S.ctrl_smoke_rotary ? "#ffc726" : "#edf2f5"; ctx.fill();
+        ctx.font = "bold 9px Inter, sans-serif";
+        ctx.fillText(k === 0 ? "ОТКЛ." : String(k), 98 + Math.cos(a) * 55, sry - Math.sin(a) * 55);
+      }
+      const srad = smokeRad(S.ctrl_smoke_rotary);
+      ctx.beginPath(); ctx.arc(98, sry, 24, 0, Math.PI * 2); ctx.fillStyle = "#945224"; ctx.fill();
+      ctx.strokeStyle = "#fff"; ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(98 + Math.cos(srad) * 8, sry - Math.sin(srad) * 8);
+      ctx.lineTo(98 + Math.cos(srad) * 28, sry - Math.sin(srad) * 28);
+      ctx.stroke();
+
+      // Декоративний замок кришки щитка (за фото, не перемикач)
+      const sly = cy3(322);
+      ctx.fillStyle = "#738791"; ctx.fillRect(330, sly - 11, 76, 22);
+      ctx.strokeStyle = "#38474f"; ctx.lineWidth = 1.5; ctx.strokeRect(330, sly - 11, 76, 22);
+      ctx.beginPath(); ctx.arc(341, sly, 5, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(395, sly, 5, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = "#141619"; ctx.fillRect(353, sly - 13, 30, 26);
+      ctx.fillStyle = "#4b5a63"; ctx.fillRect(355, sly - 5, 26, 10);
+      ctx.fillStyle = "#edf2f5"; ctx.font = "bold 13px Inter, sans-serif";
+      ctx.fillText("ВСУ", 368, cy3(296));
+
+      for (const sw of TRI_SW) {
+        const y = cy3(sw.y);
+        const v = S[sw.key];
+        ctx.font = "bold 12px Inter, sans-serif";
+        ctx.fillStyle = v === 1 ? "#ffc726" : "#edf2f5"; ctx.fillText(sw.up, sw.x, y - 44);
+        ctx.fillStyle = v === 2 ? "#ffc726" : "#edf2f5"; ctx.fillText(sw.dr, sw.x + 38, y + 28);
+        ctx.fillStyle = v === 3 ? "#ffc726" : "#edf2f5"; ctx.fillText(sw.dl, sw.x - 38, y + 28);
+        ctx.beginPath(); ctx.arc(sw.x, y, 18, 0, Math.PI * 2); ctx.fillStyle = "#ccd4db"; ctx.fill();
+        ctx.beginPath(); ctx.arc(sw.x, y, 11, 0, Math.PI * 2); ctx.fillStyle = "#38474f"; ctx.fill();
+        const dx = v === 2 ? 8 : (v === 3 ? -8 : 0);
+        const dy = v === 1 ? -10 : (v >= 2 ? 8 : 0);
+        ctx.beginPath(); ctx.arc(sw.x + dx, y + dy, 6, 0, Math.PI * 2); ctx.fillStyle = "#cc9961"; ctx.fill();
+      }
+
+      ctx.fillStyle = "#edf2f5"; ctx.font = "bold 14px Inter, sans-serif";
+      ctx.fillText("К   Р   Ы   Л   Ь   Я", 302, cy3(140));
+      for (const sw of BI_SW) {
+        const y = cy3(sw.y);
+        const v = S[sw.key];
+        ctx.font = "bold 12px Inter, sans-serif";
+        ctx.fillStyle = v === 1 ? "#ffc726" : "#edf2f5"; ctx.fillText(sw.left, sw.x - 34, y - 26);
+        ctx.fillStyle = v === 2 ? "#ffc726" : "#edf2f5"; ctx.fillText(sw.right, sw.x + 34, y - 26);
+        ctx.beginPath(); ctx.arc(sw.x, y, 16, 0, Math.PI * 2); ctx.fillStyle = "#cc9961"; ctx.fill();
+        ctx.beginPath(); ctx.arc(sw.x, y, 10, 0, Math.PI * 2); ctx.fillStyle = "#141619"; ctx.fill();
+        const dx = v === 1 ? -7 : (v === 2 ? 7 : 0);
+        ctx.beginPath(); ctx.arc(sw.x + dx, y, 6, 0, Math.PI * 2); ctx.fillStyle = "#ccd4db"; ctx.fill();
+      }
+    }
+
+    function drawAll() {
+      drawUsps();
+      drawChk();
+      drawCtrl();
+    }
+
+    // =========================================================================
+    // 5. ОБРОБКА ПОДІЙ МИШІ / ТАЧУ
+    // =========================================================================
+    function getPos(canvas, e) {
+      const r = canvas.getBoundingClientRect();
+      return {
+        x: (e.clientX - r.left) * (canvas.width / r.width),
+        y: canvas.height - (e.clientY - r.top) * (canvas.height / r.height),
+      };
+    }
+
+    cvUsps.addEventListener("pointerdown", (e) => {
+      const { x, y } = getPos(cvUsps, e);
+      const isRight = e.button === 2;
+
+      for (const sw of QUEUE_SW) {
+        if (x >= sw.x - 52 && x <= sw.x + 52 && y >= sw.y - 56 && y <= sw.y + 76) {
+          document.getElementById("selUspsZone").value = sw.id;
+          const open = sw.getCap() === 1;
+          if (isRight) { sw.setCap(open ? 0 : 1); S.toast = open ? "Ковпачок закрито" : "Ковпачок відкрито"; updateLogic(); return; }
+          if (!open) {
+            sw.setCap(1);
+            S.toast = `${compLabel(sw.comp, sw.idx)}: ковпачок відкрито — натисніть 1, 2 або 3`;
+          } else if (y <= sw.y - 28) {
+            sw.setCap(0);
+            S.toast = `${compLabel(sw.comp, sw.idx)}: ковпачок закрито`;
+          } else if (y >= sw.y + 12) {
+            dischargeQueue(1, sw.comp, sw.idx, sw.id);
+          } else if (x < sw.x) {
+            dischargeQueue(2, sw.comp, sw.idx, sw.id);
+          } else {
+            dischargeQueue(3, sw.comp, sw.idx, sw.id);
+          }
+          updateLogic();
+          return;
+        }
+      }
+
+      for (const st of STOP_SW) {
+        const sx = st.sx, sy = 78;
+        if (x >= sx - 28 && x <= sx + 28 && y >= sy - 74 && y <= sy + 36) {
+          const open = S.cap_stop[st.idx] === 1;
+          if (isRight) {
+            if (open && S.sw_stop[st.idx] === 0) S.cap_stop[st.idx] = 0;
+          } else if (!open) {
+            S.cap_stop[st.idx] = 1;
+          } else if (y < sy - 26) {
+            if (S.sw_stop[st.idx] === 0) S.cap_stop[st.idx] = 0;
+          } else {
+            S.sw_stop[st.idx] = S.sw_stop[st.idx] === 0 ? 1 : 0;
+          }
+          updateLogic();
+          return;
+        }
+      }
+    });
+    cvUsps.addEventListener("contextmenu", e => e.preventDefault());
+
+    cvChk.addEventListener("pointerdown", (e) => {
+      const { x, y } = getPos(cvChk, e);
+      if (Math.hypot(x - 210, y - 102) <= 64) {
+        S.check_rotary_pos = e.button === 2
+          ? Math.max(0, S.check_rotary_pos - 1)
+          : Math.min(9, S.check_rotary_pos + 1);
+        updateLogic();
+        return;
+      }
+      if (Math.hypot(x - 405, y - 102) <= 42) {
+        S.btn_check_lamps = 1;
+        updateLogic();
+      }
+    });
+    cvChk.addEventListener("contextmenu", e => e.preventDefault());
+
+    window.addEventListener("pointerup", () => {
+      let changed = false;
+      if (S.btn_check_lamps) { S.btn_check_lamps = 0; changed = true; }
+      if (S.ctrl_btn_smoke)  { S.ctrl_btn_smoke = 0; changed = true; }
+      for (const k of ["ctrl_eng_grp_123", "ctrl_eng_grp_456", "ctrl_eng_grp_789", "ctrl_vsu_grp_123", "ctrl_wing_grp_12", "ctrl_wing_grp_34"]) {
+        if (S[k]) { S[k] = 0; changed = true; }
+      }
+      if (changed) updateLogic();
+    });
+
+    cvCtrl.addEventListener("pointerdown", (e) => {
+      const { x, y } = getPos(cvCtrl, e);
+      if (S.ctrl_door_open === 0) { S.ctrl_door_open = 1; updateLogic(); return; }
+      if (x <= 32) {
+        S.ctrl_door_open = 0;
+        updateLogic(); return;
+      }
+      if (x >= 68 && x <= 128 && y >= 338 && y <= 425) {
+        S.ctrl_main_mode = S.ctrl_main_mode === 0 ? 1 : 0;
+        updateLogic(); return;
+      }
+      if (x >= 330 && x <= 406 && y >= 306 && y <= 338) {
+        S.ctrl_door_open = 0;
+        updateLogic(); return;
+      }
+      if (Math.hypot(x - 98, y - 224) <= 32) {
+        S.ctrl_btn_smoke = 1; updateLogic(); return;
+      }
+      if (Math.hypot(x - 98, y - 92) <= 46) {
+        S.ctrl_smoke_rotary = e.button === 2
+          ? Math.max(0, S.ctrl_smoke_rotary - 1)
+          : Math.min(10, S.ctrl_smoke_rotary + 1);
+        updateLogic(); return;
+      }
+      for (const sw of TRI_SW) {
+        if (x >= sw.x - 48 && x <= sw.x + 48 && y >= sw.y - 40 && y <= sw.y + 52) {
+          S[sw.key] = y >= sw.y + 8 ? 1 : (x >= sw.x ? 2 : 3);
+          updateLogic(); return;
+        }
+      }
+      for (const sw of BI_SW) {
+        if (x >= sw.x - 46 && x <= sw.x + 46 && y >= sw.y - 26 && y <= sw.y + 36) {
+          S[sw.key] = x < sw.x ? 1 : 2;
+          updateLogic(); return;
+        }
+      }
+    });
+    cvCtrl.addEventListener("contextmenu", e => e.preventDefault());
+
+    // =========================================================================
+    // 6. КНОПКИ КЕРУВАННЯ, ІНСТРУКТОРА ТА ВКЛАДКИ
+    // =========================================================================
+    document.getElementById("btnPowerDC").addEventListener("click", (e) => {
+      S.dc_ok = !S.dc_ok;
+      e.target.textContent = S.dc_ok ? "27В ПОСТ: ВКЛ" : "27В ПОСТ: ВИМК";
+      e.target.className = S.dc_ok
+        ? "px-2.5 py-1.5 rounded text-xs font-semibold bg-emerald-700 hover:bg-emerald-600 text-white border border-emerald-500"
+        : "px-2.5 py-1.5 rounded text-xs font-semibold bg-slate-700 hover:bg-slate-600 text-slate-300 border border-slate-500";
+      updateLogic();
+    });
+
+    // v2.10: reset_fire_system() НЕ чіпає ручний «ОСТАНОВ» пілота!
+    document.getElementById("btnResetAll").addEventListener("click", () => {
+      S.q1_intact = [1, 1, 1, 1, 1, 1, 1];
+      S.reserve_intact[2] = 1;
+      S.reserve_intact[3] = 1;
+      S.fail_eng_fire = [0, 0, 0, 0];
+      S.fail_eng_ovht = [0, 0, 0, 0];
+      S.fail_wing_l = 0; S.fail_wing_r = 0; S.fail_vsu = 0; S.fail_smoke = 0;
+      S.latch_eng_fire = [false, false, false, false];
+      S.latch_wing_l = false; S.latch_wing_r = false; S.latch_vsu = false; S.latch_smoke = false;
+      S.auto_q1_eng = [false, false, false, false];
+      S.auto_q1_wl = false; S.auto_q1_wr = false; S.auto_q1_vsu = false;
+      S.wing_valve_open_l = false; S.wing_valve_open_r = false;
+      S.toast = "Балони перезаряджено (ручний «ОСТАНОВ» не змінено)";
+      updateLogic();
+    });
+
+
+    document.getElementById("btnBelly").addEventListener("click", () => {
+      dischargeQueue(1, "ALL", 0);
+      updateLogic();
+    });
+
+    document.querySelectorAll(".fail-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const f = btn.dataset.fail;
+        const sel = document.getElementById("selUspsZone");
+        if (f.startsWith("eng")) {
+          const i = Number(f.slice(3)) - 1;
+          S.fail_eng_fire[i] = S.fail_eng_fire[i] ? 0 : 1;
+          if (S.fail_eng_fire[i]) sel.value = "eng" + i;
+        } else if (f.startsWith("ovht")) {
+          const i = Number(f.slice(4)) - 1;
+          S.fail_eng_ovht[i] = S.fail_eng_ovht[i] ? 0 : 1;
+        } else if (f === "wingL") {
+          S.fail_wing_l = S.fail_wing_l ? 0 : 1;
+          if (S.fail_wing_l) sel.value = "wL";
+        } else if (f === "wingR") {
+          S.fail_wing_r = S.fail_wing_r ? 0 : 1;
+          if (S.fail_wing_r) sel.value = "wR";
+        } else if (f === "vsu") {
+          S.fail_vsu = S.fail_vsu ? 0 : 1;
+          if (S.fail_vsu) sel.value = "vsu";
+        } else if (f === "smoke") {
+          S.fail_smoke = S.fail_smoke ? 0 : 1;
+        }
+        updateLogic();
+      });
+    });
+
+    document.querySelectorAll(".tab-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const t = btn.dataset.tab;
+        document.querySelectorAll(".tab-btn").forEach(b => {
+          b.className = b === btn
+            ? "tab-btn px-2.5 py-1 rounded text-xs font-medium bg-indigo-600 text-white"
+            : "tab-btn px-2.5 py-1 rounded text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700";
+        });
+        document.getElementById("secUsps").classList.toggle("hidden", t !== "all" && t !== "usps");
+        document.getElementById("secChk").classList.toggle("hidden",  t !== "all" && t !== "chk");
+        document.getElementById("secCtrl").classList.toggle("hidden", t !== "all" && t !== "ctrl");
+      });
+    });
+
+    document.getElementById("btnRotPrev").addEventListener("click", () => {
+      S.check_rotary_pos = Math.max(0, S.check_rotary_pos - 1);
+      updateLogic();
+    });
+    document.getElementById("btnRotNext").addEventListener("click", () => {
+      S.check_rotary_pos = Math.min(9, S.check_rotary_pos + 1);
+      updateLogic();
+    });
+    document.getElementById("btnHoldCheck").addEventListener("pointerdown", () => {
+      S.btn_check_lamps = 1;
+      updateLogic();
+    });
+
+    document.getElementById("btnToggleDoor").addEventListener("click", () => {
+      S.ctrl_door_open = S.ctrl_door_open === 0 ? 1 : 0;
+      updateLogic();
+    });
+    document.getElementById("btnToggleMode").addEventListener("click", () => {
+      if (S.ctrl_door_open === 0) S.ctrl_door_open = 1;
+      S.ctrl_main_mode = S.ctrl_main_mode === 0 ? 1 : 0;
+      updateLogic();
+    });
+
+    function getSelectedSw() {
+      const id = document.getElementById("selUspsZone").value;
+      return QUEUE_SW.find(s => s.id === id) || QUEUE_SW[0];
+    }
+    document.getElementById("btnTouchCap").addEventListener("click", () => {
+      const sw = getSelectedSw();
+      const next = sw.getCap() === 1 ? 0 : 1;
+      sw.setCap(next);
+      S.toast = `${compLabel(sw.comp, sw.idx)}: ковпачок ${next ? "відкрито" : "закрито"}`;
+      updateLogic();
+    });
+    for (const q of [1, 2, 3]) {
+      document.getElementById("btnTouchQ" + q).addEventListener("click", () => {
+        const sw = getSelectedSw();
+        sw.setCap(1);
+        dischargeQueue(q, sw.comp, sw.idx, sw.id);
+        updateLogic();
+      });
+    }
+
+    // 2.5 Гц блимання табло «ПОЖАР» на canvas УСПС
+    setInterval(() => {
+      if (S.lamp_master_warn === 1) {
+        S.blink_on = !S.blink_on;
+        drawUsps();
+      } else if (!S.blink_on) {
+        S.blink_on = true;
+        drawUsps();
+      }
+    }, 200);
+
+    updateLogic();
+  </script>
+</body>
+</html>
