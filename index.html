@@ -174,6 +174,12 @@
           <button id="btnToggleDoor" type="button" class="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 border border-slate-600 text-xs font-semibold">Відкрити / закрити кришку</button>
           <button id="btnToggleMode" type="button" class="px-3 py-1.5 rounded bg-amber-900/80 hover:bg-amber-800 border border-amber-600 text-xs font-semibold text-amber-100">ПРОВЕРКА / ПОЖАРОТУШ.</button>
         </div>
+        <div class="mt-2 flex flex-wrap items-center justify-center gap-2">
+          <button id="btnSmokePrev" type="button" class="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 border border-slate-600 text-xs font-semibold">◀ Датчик</button>
+          <span id="lblSmokePos" class="px-2.5 py-1 rounded bg-slate-950 font-mono text-xs text-amber-300 border border-slate-700">ОТКЛ.</span>
+          <button id="btnSmokeNext" type="button" class="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 border border-slate-600 text-xs font-semibold">Датчик ▶</button>
+          <button id="btnHoldSmoke" type="button" class="px-3 py-1.5 rounded bg-purple-900/80 hover:bg-purple-800 border border-purple-500 text-xs font-semibold text-white">Утримувати: Тест / Розбл. диму</button>
+        </div>
       </section>
     </div>
 
@@ -558,6 +564,7 @@
       }
 
       document.getElementById("lblRotPos").textContent = ROT_NAMES[S.check_rotary_pos] || "ОТКЛ.";
+      document.getElementById("lblSmokePos").textContent = S.ctrl_smoke_rotary === 0 ? "ОТКЛ." : ("Датчик " + S.ctrl_smoke_rotary);
       document.getElementById("uspsActionToast").textContent = S.toast;
       document.querySelectorAll(".fail-btn").forEach(btn => {
         const f = btn.dataset.fail;
@@ -1312,6 +1319,21 @@
     document.getElementById("btnToggleMode").addEventListener("click", () => {
       if (S.ctrl_door_open === 0) S.ctrl_door_open = 1;
       S.ctrl_main_mode = S.ctrl_main_mode === 0 ? 1 : 0;
+      updateLogic();
+    });
+    document.getElementById("btnSmokePrev").addEventListener("click", () => {
+      if (S.ctrl_door_open === 0) S.ctrl_door_open = 1;
+      S.ctrl_smoke_rotary = Math.max(0, S.ctrl_smoke_rotary - 1);
+      updateLogic();
+    });
+    document.getElementById("btnSmokeNext").addEventListener("click", () => {
+      if (S.ctrl_door_open === 0) S.ctrl_door_open = 1;
+      S.ctrl_smoke_rotary = Math.min(10, S.ctrl_smoke_rotary + 1);
+      updateLogic();
+    });
+    document.getElementById("btnHoldSmoke").addEventListener("pointerdown", () => {
+      if (S.ctrl_door_open === 0) S.ctrl_door_open = 1;
+      S.ctrl_btn_smoke = 1;
       updateLogic();
     });
 
